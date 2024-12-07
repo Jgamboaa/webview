@@ -38,6 +38,6 @@ class MainActivity : AppCompatActivity() {
         webSettings.loadsImagesAutomatically = true
         webSettings.javaScriptCanOpenWindowsAutomatically = true
 
-        visor.loadUrl("https://hrtime.site/nelixia/nomina/")
+        visor.loadUrl("https://hrmsgt.nelixia.net/admin")
     }
 }

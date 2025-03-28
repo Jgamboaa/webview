@@ -54,27 +54,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                 initWebview()
             } else {
                 Log.e("MainActivity", "No se concedieron todos los permisos necesarios")
-                // Aquí podrías notificar al usuario o deshabilitar funcionalidades
             }
         }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun initWebview() {
-        val visor = findViewById<WebView>(R.id.web)
-        val webSettings: WebSettings = visor.settings
+        val webView = findViewById<WebView>(R.id.web)
+        val webSettings = webView.settings
 
-        // Habilitar funcionalidades avanzadas de JavaScript
+        // Habilitar funcionalidades avanzadas de JavaScript y otras configuraciones
         webSettings.javaScriptEnabled = true
         webSettings.domStorageEnabled = true
         webSettings.databaseEnabled = true
-        // Reemplaza setAppCacheEnabled(true) por la siguiente línea para manejar la caché
         webSettings.cacheMode = WebSettings.LOAD_DEFAULT
         webSettings.useWideViewPort = true
         webSettings.loadWithOverviewMode = true
@@ -86,47 +84,49 @@ class MainActivity : AppCompatActivity() {
         webSettings.allowContentAccess = true
         webSettings.setSupportMultipleWindows(true)
 
-        // Permitir contenido mixto (HTTP y HTTPS) en versiones recientes de Android
+        // Permitir contenido mixto (HTTP y HTTPS)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             webSettings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
-        // Configurar el WebViewClient para mantener la navegación interna
-        visor.webViewClient = object : WebViewClient() {
+        // Configurar el WebViewClient con manejo de errores y sin interceptar la navegación
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                Log.d("WebView", "Finished loading: $url")
+                super.onPageFinished(view, url)
+            }
+            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                Log.e("WebView", "Error loading page: ${error?.description}")
+                super.onReceivedError(view, request, error)
+            }
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                view?.loadUrl(request?.url.toString())
-                return true
+                // Devolver false para que el WebView maneje la URL internamente
+                return false
             }
         }
 
-        // Configurar el WebChromeClient para manejar diálogos, permisos y ventanas emergentes
-        visor.webChromeClient = object : WebChromeClient() {
+        // Configurar el WebChromeClient para manejar permisos, consola, ventanas emergentes y carga de archivos
+        webView.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-                Log.e("WebView - Logger", "${consoleMessage.messageLevel()} : ${consoleMessage.lineNumber()} : ${consoleMessage.message()}")
+                Log.e("WebView", "Console: ${consoleMessage.message()}")
                 return true
             }
-
-            // Manejo de permisos de geolocalización solicitados por el sitio
             override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
                 callback.invoke(origin, true, false)
             }
-
-            // Delegar permisos para cámara, micrófono y otros recursos
             override fun onPermissionRequest(request: PermissionRequest?) {
                 runOnUiThread {
                     request?.grant(request.resources)
                 }
             }
-
-            // Permitir la creación de nuevas ventanas (pop-ups) dentro del WebView
             override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
-                val newWebView = WebView(this@MainActivity)
-                newWebView.settings.javaScriptEnabled = true
-                newWebView.settings.domStorageEnabled = true
-                newWebView.webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                        view?.loadUrl(url ?: "")
-                        return true
+                val newWebView = WebView(this@MainActivity).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                            return false
+                        }
                     }
                 }
                 val transport = resultMsg?.obj as WebView.WebViewTransport
@@ -134,8 +134,6 @@ class MainActivity : AppCompatActivity() {
                 resultMsg.sendToTarget()
                 return true
             }
-
-            // Manejo de selección de archivos para formularios HTML (subida de archivos)
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -153,14 +151,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        visor.loadUrl("https://hrmsgt.nelixia.net")
+        // Cargar la URL; asegúrate de que el permiso INTERNET esté declarado en el manifest
+        webView.loadUrl("https://hrmsgt.nelixia.net")
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == FILECHOOSER_REQUEST_CODE) {
             filePathCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data))
             filePathCallback = null
         }
+        super.onActivityResult(requestCode, resultCode, data)
     }
 }
